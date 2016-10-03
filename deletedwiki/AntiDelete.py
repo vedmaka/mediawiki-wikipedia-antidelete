@@ -12,6 +12,9 @@ from DeletablePage import DeletablePage
 
 
 class AntiDelete:
+
+    pendingTime = 60 * 60 * 24 * 7
+
     def __init__(self, config_file):
         self._config_file = config_file
         self._load_config()
@@ -45,10 +48,11 @@ class AntiDelete:
 
     def update_pending(self):
         # TODO: this method should check pending pages in database and update/remove them if needed
+        self.store_stat(0, '', 'check_pending')
         pending = self._db.getAll("wikipedia_antidelete",
                                   where=(
                                       "status = %s and created_at < %s",
-                                      ['pending', (time.time() - 60 * 60 * 24 * 7)]
+                                      ['pending', (time.time() - self.pendingTime)]
                                   ))
         if pending:
             print "Found %s pending pages" % len(pending)
@@ -62,6 +66,8 @@ class AntiDelete:
         # TODO: this method should fetch actual (today's) deletion list and import (if needed) pages from it
         today_string = datetime.date.today().strftime('%Y_%B_') + '{d.day}'.format(d=datetime.date.today())
         deletionList = self._wikiRemote.Pages['Wikipedia:Articles_for_deletion/Log/' + today_string]
+        # Store statistics
+        self.store_stat(deletionList.touched, '', 'fetch')
         text = deletionList.text()
         wikicode = mwparserfromhell.parse(text)
         templates = wikicode.filter_templates()
@@ -74,3 +80,32 @@ class AntiDelete:
                 dpage = DeletablePage(self._db, self._wikiLocal, self._wikiRemote, pageName)
                 dpage.save_local()
                 time.sleep(random.randint(5, 10))
+
+    def check_touched(self):
+        # TODO: this method is experimental, should be tested carefully
+        today_string = datetime.date.today().strftime('%Y_%B_') + '{d.day}'.format(d=datetime.date.today())
+        deletionList = self._wikiRemote.Pages['Wikipedia:Articles_for_deletion/Log/' + today_string]
+        # Fetch last record
+        record = self._db.getOne("wikipedia_antidelete_log",
+                                 fields="*",
+                                 order=["created_at", "DESC"],
+                                 where=("FROM_UNIXTIME(created_at, '%%Y-%%M-%%d')=%s AND status='fetch')", [datetime.date.today().strftime('%Y-%B-%d')])
+                                 )
+        if record:
+            last_touched = record.touched
+            if deletionList.touched != last_touched:
+                # Indicate that deletion list has *not* changed since our last query
+                self.store_stat(0, 'not_changed', 'check_touch')
+                return False
+        # Indicates either an error or deletion list *has* changed since our last query
+        self.store_stat(0, 'changed', 'check_touch')
+        return True
+
+    def store_stat(self, touched, status, flag):
+        self._db.insert("wikipedia_antidelete_log", {
+            'touched': 0 if touched == 0 else time.mktime(touched),
+            'status': status,
+            'flag': flag,
+            'created_at': time.time()
+        })
+        self._db.commit()

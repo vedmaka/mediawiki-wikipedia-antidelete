@@ -1,11 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-import mwclient
-import mwparserfromhell
-import datetime
 import time
-from simplemysql import SimpleMysql
-
 
 class DeletablePage:
     def __init__(self, conn, local, remote, page_name):
@@ -17,6 +12,9 @@ class DeletablePage:
         pass
 
     def _setup(self):
+
+        from AntiDelete import AntiDelete
+
         # Initialize remote & local pages
         self._page_remote = self._wikiRemote.Pages[self._page_name]
         self._page_local = self._wikiLocal.Pages[self._page_name]
@@ -39,11 +37,11 @@ class DeletablePage:
             self._db_record = self._conn.getOne(table="wikipedia_antidelete", where=("page_title=%s", [self._page_name]))
             if self._db_record:
                 if self._db_record.status == 'pending':
-                    if self._db_record.created_at < (time.time() - 60 * 60 * 24 * 7):
+                    if self._db_record.created_at < (time.time() - AntiDelete.pendingTime):
                         self._canBeChecked = True
             else:
                 print "page seems to be corrupted or old-known, fixed"
-                self.save_db() # fix it to check on next run
+                self.save_db()  # fix it to check on next run
                 # No record though page is already pulled, this means either corrupted run or this page already
                 # was nominated years ago
 
@@ -97,5 +95,5 @@ class DeletablePage:
     def update_db(self, status):
         self._conn.update("wikipedia_antidelete", {
             'status': status
-        }, ("page_title = %s" % self._page_name))
+        }, where=("page_id_remote = %s", [self._page_remote.pageid]))
         self._conn.commit()

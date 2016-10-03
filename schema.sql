@@ -12,3 +12,13 @@ CREATE TABLE wikipedia_antidelete (
   PRIMARY KEY (id)
 )
 ENGINE = INNODB;
+
+CREATE TABLE wikipedia_antidelete_log (
+  id INT NOT NULL AUTO_INCREMENT,
+  touched INT(11) DEFAULT NULL,
+  created_at INT(11) DEFAULT NULL,
+  status VARCHAR(255) DEFAULT NULL,
+  flag VARCHAR(512) DEFAULT NULL,
+  PRIMARY KEY (id)
+)
+ENGINE = INNODB;
