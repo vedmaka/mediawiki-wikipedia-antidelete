@@ -96,7 +96,14 @@ class DeletablePage:
         self._conn.commit()
 
     def update_db(self, status):
-        self._conn.update("wikipedia_antidelete", {
-            'status': status
-        }, where=("page_id_remote = %s", [self._page_remote.pageid]))
+        if status == 'completed':
+            # Update status based on page_title (risky)
+            self._conn.update("wikipedia_antidelete", {
+                'status': status
+            }, where=("page_title = %s", [self._page_name]))
+        else:
+            # Update status based on ID
+            self._conn.update("wikipedia_antidelete", {
+                'status': status
+            }, where=("page_id_remote = %s", [self._page_remote.pageid]))
         self._conn.commit()
