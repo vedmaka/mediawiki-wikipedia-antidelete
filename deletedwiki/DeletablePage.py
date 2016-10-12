@@ -49,7 +49,7 @@ class DeletablePage:
         if self._canBeChecked and self.alreadyPulled:
             if self._page_remote.exists:
                 # Looks like page survived deletion, restore
-                if "{{Article for deletion" in self._page_remote.text():
+                if "{{Article for deletion" in self._page_remote.text() or "{{AfDM" in self._page_remote.text():
                     print "page is still under review, leave it as it is"
                 else:
                     # Page exists and there are no deletion mark, consider as survived
