@@ -45,7 +45,6 @@ class DeletablePage:
                 # No record though page is already pulled, this means either corrupted run or this page already
                 # was nominated years ago
 
-
     def check_update(self):
         if self._canBeChecked and self.alreadyPulled:
             if self._page_remote.exists:
