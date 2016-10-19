@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 
+# This filter strips out all broken links and templates away from source page
+
 import mwparserfromhell
 
 
