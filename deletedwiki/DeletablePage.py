@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
-
+import importlib
+import os
 import time
+import imp
 
 class DeletablePage:
     def __init__(self, conn, local, remote, page_name):
@@ -9,6 +11,7 @@ class DeletablePage:
         self._wikiRemote = remote
         self._conn = conn
         self._setup()
+        self._filters = []
         pass
 
     def _setup(self):
@@ -73,7 +76,16 @@ class DeletablePage:
 
     def save_local(self):
         if self.canBeSaved and not self.alreadyPulled:
-            self._page_local.save(text=self._page_remote.text(), summary="Saved from Wikipedia deletion list")
+
+            self.load_filters()
+
+            # Pass text to save to the filters
+            textToSave = self._page_remote.text()
+            if len(self._filters):
+                for filter in self._filters:
+                    textToSave = filter.filter_text(textToSave)
+
+            self._page_local.save(text=textToSave, summary="Saved from Wikipedia deletion list")
             self.save_db()
             self.canBeSaved = False
             self.alreadyPulled = True
@@ -107,3 +119,16 @@ class DeletablePage:
                 'status': status
             }, where=("page_id_remote = %s", [self._page_remote.pageid]))
         self._conn.commit()
+
+    def load_filters(self):
+        # Loads filter modules and apply them
+        plugins = []
+        possibleplugins = os.listdir('./deletedwiki/filters/')
+        for plugin in possibleplugins:
+            if plugin.endswith('.py') and plugin != '__init__.py':
+                module = plugin[:-3]
+                print "Found plugin '%s'" % module
+                location = os.path.join('./deletedwiki/filters/', plugin)
+                info = imp.load_source("redlinks", os.path.join('./deletedwiki/filters/', plugin))
+                plugins.append(info)
+        self._filters = plugins
